@@ -1,0 +1,69 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ---------------------< com.realestate:realestate >----------------------
+[INFO] Building Real-estate 1.0.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ realestate ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 0 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.14.1:compile (default-compile) @ realestate ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 69 source files with javac [debug parameters release 17] to target\classes
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /D:/Real-Estate/Real-estate/src/main/java/com/realestate/controller/BookingAnalyticsController.java:[82,50] cannot find symbol
+  symbol:   method countByOwner_Id(java.lang.Long)
+  location: variable propertyRepo of type com.realestate.repository.PropertyRepository
+[ERROR] /D:/Real-Estate/Real-estate/src/main/java/com/realestate/controller/BookingAnalyticsController.java:[83,51] cannot find symbol
+  symbol:   method countByOwner_IdAndStatus(java.lang.Long,com.realestate.entity.Property.PropertyStatus)
+  location: variable propertyRepo of type com.realestate.repository.PropertyRepository
+[ERROR] /D:/Real-Estate/Real-estate/src/main/java/com/realestate/service/LateFeeCalculationService.java:[126,28] method createNotification in class com.realestate.service.BookingNotificationService cannot be applied to given types;
+  required: com.realestate.entity.User,com.realestate.entity.BookingNotification.NotificationType,java.lang.String,java.lang.String,java.lang.String,com.realestate.entity.RentBooking
+  found:    com.realestate.entity.User,com.realestate.entity.BookingNotification.NotificationType,java.lang.String,java.lang.String,java.lang.String,com.realestate.entity.RentBooking,<nulltype>
+  reason: actual and formal argument lists differ in length
+[ERROR] /D:/Real-Estate/Real-estate/src/main/java/com/realestate/service/LateFeeCalculationService.java:[146,28] method createNotification in class com.realestate.service.BookingNotificationService cannot be applied to given types;
+  required: com.realestate.entity.User,com.realestate.entity.BookingNotification.NotificationType,java.lang.String,java.lang.String,java.lang.String,com.realestate.entity.RentBooking
+  found:    com.realestate.entity.User,com.realestate.entity.BookingNotification.NotificationType,java.lang.String,java.lang.String,java.lang.String,com.realestate.entity.RentBooking,<nulltype>
+  reason: actual and formal argument lists differ in length
+[ERROR] /D:/Real-Estate/Real-estate/src/main/java/com/realestate/service/LateFeeCalculationService.java:[256,28] method createNotification in class com.realestate.service.BookingNotificationService cannot be applied to given types;
+  required: com.realestate.entity.User,com.realestate.entity.BookingNotification.NotificationType,java.lang.String,java.lang.String,java.lang.String,com.realestate.entity.RentBooking
+  found:    com.realestate.entity.User,com.realestate.entity.BookingNotification.NotificationType,java.lang.String,java.lang.String,java.lang.String,com.realestate.entity.RentBooking,<nulltype>
+  reason: actual and formal argument lists differ in length
+[INFO] 5 errors 
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  10.180 s
+[INFO] Finished at: 2025-11-22T00:02:00+05:30
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.14.1:compile (default-compile) on project realestate: Compilation failure: Compilation failure: 
+[ERROR] /D:/Real-Estate/Real-estate/src/main/java/com/realestate/controller/BookingAnalyticsController.java:[82,50] cannot find symbol
+[ERROR]   symbol:   method countByOwner_Id(java.lang.Long)
+[ERROR]   location: variable propertyRepo of type com.realestate.repository.PropertyRepository
+[ERROR] /D:/Real-Estate/Real-estate/src/main/java/com/realestate/controller/BookingAnalyticsController.java:[83,51] cannot find symbol
+[ERROR]   symbol:   method countByOwner_IdAndStatus(java.lang.Long,com.realestate.entity.Property.PropertyStatus)
+[ERROR]   location: variable propertyRepo of type com.realestate.repository.PropertyRepository
+[ERROR] /D:/Real-Estate/Real-estate/src/main/java/com/realestate/service/LateFeeCalculationService.java:[126,28] method createNotification in class com.realestate.service.BookingNotificationService cannot be applied to given types;
+[ERROR]   required: com.realestate.entity.User,com.realestate.entity.BookingNotification.NotificationType,java.lang.String,java.lang.String,java.lang.String,com.realestate.entity.RentBooking
+[ERROR]   found:    com.realestate.entity.User,com.realestate.entity.BookingNotification.NotificationType,java.lang.String,java.lang.String,java.lang.String,com.realestate.entity.RentBooking,<nulltype>
+[ERROR]   reason: actual and formal argument lists differ in length
+[ERROR] /D:/Real-Estate/Real-estate/src/main/java/com/realestate/service/LateFeeCalculationService.java:[146,28] method createNotification in class com.realestate.service.BookingNotificationService cannot be applied to given types;
+[ERROR]   required: com.realestate.entity.User,com.realestate.entity.BookingNotification.NotificationType,java.lang.String,java.lang.String,java.lang.String,com.realestate.entity.RentBooking
+[ERROR]   found:    com.realestate.entity.User,com.realestate.entity.BookingNotification.NotificationType,java.lang.String,java.lang.String,java.lang.String,com.realestate.entity.RentBooking,<nulltype>
+[ERROR]   reason: actual and formal argument lists differ in length
+[ERROR] /D:/Real-Estate/Real-estate/src/main/java/com/realestate/service/LateFeeCalculationService.java:[256,28] method createNotification in class com.realestate.service.BookingNotificationService cannot be applied to given types;
+[ERROR]   required: com.realestate.entity.User,com.realestate.entity.BookingNotification.NotificationType,java.lang.String,java.lang.String,java.lang.String,com.realestate.entity.RentBooking
+[ERROR]   found:    com.realestate.entity.User,com.realestate.entity.BookingNotification.NotificationType,java.lang.String,java.lang.String,java.lang.String,com.realestate.entity.RentBooking,<nulltype>
+[ERROR]   reason: actual and formal argument lists differ in length
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

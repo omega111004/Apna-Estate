@@ -1,0 +1,572 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { MapPin, Bed, Bath, Square, Calendar, ArrowLeft, Edit, Trash2, Phone, Mail, Share2 } from 'lucide-react';
+import { propertyApi } from '../../services/api';
+import { PropertyStatus } from '../../types/Property';
+import { useAuth } from '../../contexts/AuthContext';
+import { formatPriceINR } from '../../utils/currency';
+const PropertyDetailPage = () => {
+    const { id } = useParams();
+    const navigate = useNavigate();
+    const [property, setProperty] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const { isAuthenticated, token, user } = useAuth();
+    const RAW_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888';
+    const base = RAW_BASE.replace(/\/+$/, '');
+    const apiBase = base.endsWith('/api') ? base : `${base}/api`;
+    const [inqAmount, setInqAmount] = useState('');
+    const [inqMessage, setInqMessage] = useState('');
+    const [inqBusy, setInqBusy] = useState(false);
+    const [showMsgModal, setShowMsgModal] = useState(false);
+    const [msgName, setMsgName] = useState('');
+    const [msgEmail, setMsgEmail] = useState('');
+    const [msgPhone, setMsgPhone] = useState('');
+    const [msgText, setMsgText] = useState('');
+    const [msgSending, setMsgSending] = useState(false);
+    // Booking states
+    const [showBookingModal, setShowBookingModal] = useState(false);
+    const [bookingData, setBookingData] = useState({
+        startDate: '',
+        endDate: '',
+        monthlyRent: '',
+        securityDeposit: ''
+    });
+    const [bookingBusy, setBookingBusy] = useState(false);
+    const [walletBalance, setWalletBalance] = useState(null);
+    const [walletLoading, setWalletLoading] = useState(false);
+    useEffect(() => {
+        window.scrollTo(0, 0);
+        if (id) {
+            fetchProperty(parseInt(id));
+        }
+    }, [id]);
+    const fetchProperty = async (propertyId) => {
+        try {
+            setLoading(true);
+            // Fallback to backend for DB-backed properties
+            const res = await fetch(`${apiBase}/properties/public/${propertyId}`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            if (!res.ok) {
+                setError(res.status === 404 ? 'Property not found' : `Failed to load property (${res.status})`);
+                return;
+            }
+            const data = await res.json();
+            setProperty(data);
+        }
+        catch (err) {
+            console.error('Error fetching property:', err);
+            setError('Failed to load property details');
+        }
+        finally {
+            setLoading(false);
+        }
+    };
+    const sendMessageToAgent = async () => {
+        if (!property || !property.owner?.id) {
+            alert('Agent info is missing for this property.');
+            return;
+        }
+        if (!msgName.trim() || !msgEmail.trim() || !msgText.trim()) {
+            alert('Please fill your name, email and message.');
+            return;
+        }
+        try {
+            setMsgSending(true);
+            // Require login for reliable server-side processing (avoids CSRF 403 on public POST)
+            if (!isAuthenticated) {
+                alert('Please login to send an inquiry to the agent.');
+                navigate('/login');
+                return;
+            }
+            const authHeaders = { 'Content-Type': 'application/json' };
+            if (token)
+                authHeaders['Authorization'] = `Bearer ${token}`;
+            const res = await fetch(`${apiBase.replace(/\/$/, '')}/agents/${property.owner.id}/message`, {
+                method: 'POST',
+                headers: authHeaders,
+                body: JSON.stringify({
+                    propertyId: property.id,
+                    name: msgName,
+                    email: msgEmail,
+                    phone: msgPhone || undefined,
+                    message: msgText,
+                }),
+            });
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || `Failed to send message (${res.status})`);
+            }
+            setShowMsgModal(false);
+            setMsgName('');
+            setMsgEmail('');
+            setMsgPhone('');
+            setMsgText('');
+            alert('Message sent to the agent. They will contact you soon.');
+        }
+        catch (e) {
+            alert(e.message || 'Failed to send message');
+        }
+        finally {
+            setMsgSending(false);
+        }
+    };
+    const handleCreateInquiry = async () => {
+        if (!property)
+            return;
+        if (!isAuthenticated) {
+            navigate('/login');
+            return;
+        }
+        try {
+            setInqBusy(true);
+            const res = await fetch(`${apiBase}/inquiries`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                    propertyId: property.id,
+                    offeredPrice: inqAmount ? Number(inqAmount) : null,
+                    message: inqMessage || 'I am interested in this property.',
+                }),
+            });
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || `Inquiry failed (${res.status})`);
+            }
+            const inquiry = await res.json();
+            // Reset form and navigate to inquiry detail
+            setInqAmount('');
+            setInqMessage('');
+            alert('Inquiry sent successfully! You can now chat with the property owner.');
+            navigate(`/inquiries/${inquiry.id}`);
+        }
+        catch (e) {
+            alert(e.message || 'Failed to create inquiry');
+        }
+        finally {
+            setInqBusy(false);
+        }
+    };
+    const fetchWalletBalance = async () => {
+        if (!token)
+            return;
+        try {
+            setWalletLoading(true);
+            const res = await fetch(`${apiBase}/wallet`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setWalletBalance(Number(data.balance) || 0);
+            }
+        }
+        catch (error) {
+            console.error('Failed to load wallet balance', error);
+        }
+        finally {
+            setWalletLoading(false);
+        }
+    };
+    useEffect(() => {
+        if (showBookingModal && isAuthenticated) {
+            fetchWalletBalance();
+        }
+    }, [showBookingModal, isAuthenticated]);
+    const openBookingModal = () => {
+        if (!property)
+            return;
+        setBookingData({
+            startDate: '',
+            endDate: '',
+            monthlyRent: property.price?.toString() || '',
+            securityDeposit: property.price?.toString() || '',
+        });
+        setShowBookingModal(true);
+    };
+    const handleCreateBooking = async () => {
+        if (!property)
+            return;
+        if (!isAuthenticated) {
+            navigate('/login');
+            return;
+        }
+        if (!bookingData.startDate) {
+            alert('Please select a start date to proceed.');
+            return;
+        }
+        const monthlyRentAmount = bookingData.monthlyRent
+            ? Number(bookingData.monthlyRent)
+            : property.price;
+        const depositAmount = bookingData.securityDeposit
+            ? Number(bookingData.securityDeposit)
+            : property.price;
+        if (!monthlyRentAmount || monthlyRentAmount <= 0) {
+            alert('Please enter a valid monthly rent amount.');
+            return;
+        }
+        if (!depositAmount || depositAmount <= 0) {
+            alert('Security deposit must be greater than zero.');
+            return;
+        }
+        if (walletBalance !== null && depositAmount > walletBalance) {
+            const shouldTopUp = window.confirm('Your wallet balance is lower than the security deposit. Add funds now?');
+            if (shouldTopUp) {
+                setShowBookingModal(false);
+                navigate('/wallet');
+                return;
+            }
+        }
+        try {
+            setBookingBusy(true);
+            const res = await fetch(`${apiBase}/bookings/rent`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({
+                    propertyId: property.id,
+                    startDate: bookingData.startDate,
+                    endDate: bookingData.endDate || null,
+                    monthlyRent: monthlyRentAmount,
+                    securityDeposit: depositAmount,
+                }),
+            });
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || `Booking failed (${res.status})`);
+            }
+            await res.json();
+            // Reset form and navigate to bookings
+            setBookingData({
+                startDate: '',
+                endDate: '',
+                monthlyRent: '',
+                securityDeposit: ''
+            });
+            setShowBookingModal(false);
+            alert('Booking created successfully! You can view it in My Bookings.');
+            navigate('/bookings');
+        }
+        catch (e) {
+            alert(e.message || 'Failed to create booking');
+        }
+        finally {
+            setBookingBusy(false);
+        }
+    };
+    const handleDelete = async () => {
+        if (!property || !id)
+            return;
+        if (window.confirm('Are you sure you want to delete this property?')) {
+            try {
+                await propertyApi.deleteProperty(parseInt(id));
+                alert('Property deleted successfully!');
+                navigate('/properties');
+            }
+            catch (err) {
+                console.error('Error deleting property:', err);
+                alert('Failed to delete property');
+            }
+        }
+    };
+    const getStatusBadgeClass = (status) => {
+        switch (status) {
+            case PropertyStatus.FOR_SALE:
+                return 'bg-green-100 text-green-800';
+            case PropertyStatus.FOR_RENT:
+                return 'bg-blue-100 text-blue-800';
+            case PropertyStatus.SOLD:
+                return 'bg-gray-100 text-gray-800';
+            case PropertyStatus.RENTED:
+                return 'bg-purple-100 text-purple-800';
+            default:
+                return 'bg-green-100 text-green-800';
+        }
+    };
+    const getStatusText = (status) => {
+        switch (status) {
+            case PropertyStatus.FOR_SALE:
+                return 'For Sale';
+            case PropertyStatus.FOR_RENT:
+                return 'For Rent';
+            case PropertyStatus.SOLD:
+                return 'Sold';
+            case PropertyStatus.RENTED:
+                return 'Rented';
+            default:
+                return 'For Sale';
+        }
+    };
+    const formatPrice = (price) => formatPriceINR(price);
+    const canManageProperty = isAuthenticated && (user?.role === 'ADMIN' || user?.role === 'AGENT');
+    if (loading) {
+        return (<div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-600"></div>
+      </div>);
+    }
+    if (error || !property) {
+        return (<div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 mb-4">
+            <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-1">Error loading property</h3>
+          <p className="text-gray-500 mb-4">{error || 'Property not found'}</p>
+          <button onClick={() => navigate('/properties')} className="btn-primary">
+            Back to Properties
+          </button>
+        </div>
+      </div>);
+    }
+    return (<div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Back Button */}
+        <button onClick={() => navigate('/properties')} className="flex items-center text-primary-600 hover:text-primary-800 mb-6">
+          <ArrowLeft className="w-4 h-4 mr-2"/>
+          Back to Properties
+        </button>
+
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="bg-white rounded-xl shadow-card overflow-hidden">
+          {/* Property Image */}
+          <div className="h-96 bg-gray-200 relative">
+            {property.imageUrl ? (<img src={property.imageUrl} alt={property.title} className="w-full h-full object-cover"/>) : (<div className="w-full h-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center">
+                <div className="text-white text-6xl font-bold">{property.title.charAt(0)}</div>
+              </div>)}
+
+            {/* Status Badge */}
+            <div className={`absolute top-6 right-6 px-3 py-1 rounded-full text-sm font-semibold ${getStatusBadgeClass(property.status)}`}>
+              {getStatusText(property.status)}
+            </div>
+          </div>
+
+          <div className="p-6 md:p-8">
+            {/* Property Header */}
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between mb-6">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">{property.title}</h1>
+                <div className="flex items-center text-gray-600 mb-4">
+                  <MapPin className="w-5 h-5 mr-2"/>
+                  <span>{property.address}, {property.city}, {property.state} {property.zipCode}</span>
+                </div>
+                <div className="text-3xl font-bold text-primary-600 mb-4">{formatPrice(property.price)}</div>
+              </div>
+
+              {canManageProperty && (<div className="flex space-x-3 mt-4 md:mt-0">
+                <button className="p-3 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200">
+                  <Share2 className="w-5 h-5 text-gray-600"/>
+                </button>
+                <button onClick={() => navigate(`/edit-property/${id}`)} className="p-3 bg-primary-100 hover:bg-primary-200 rounded-lg transition-colors duration-200">
+                  <Edit className="w-5 h-5 text-primary-600"/>
+                </button>
+                <button onClick={handleDelete} className="p-3 bg-red-100 hover:bg-red-200 rounded-lg transition-colors duration-200">
+                  <Trash2 className="w-5 h-5 text-red-600"/>
+                </button>
+              </div>)}
+            </div>
+
+            {/* Inquire Now (For Sale) */}
+            {property.status === PropertyStatus.FOR_SALE && (<div className="mb-8 bg-gray-50 rounded-xl p-4">
+                <h3 className="text-lg font-semibold mb-2">Interested? Inquire now</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <input className="input-field" placeholder="Your offer amount (optional)" value={inqAmount} onChange={(e) => setInqAmount(e.target.value)}/>
+                  <input className="input-field md:col-span-2" placeholder="Message (optional)" value={inqMessage} onChange={(e) => setInqMessage(e.target.value)}/>
+                </div>
+                <div className="mt-3">
+                  <button onClick={handleCreateInquiry} disabled={inqBusy} className="btn-primary disabled:opacity-50">
+                    {isAuthenticated ? (inqBusy ? 'Sending...' : 'Inquire Now') : 'Login to Inquire'}
+                  </button>
+                </div>
+              </div>)}
+
+            {/* Book Now (For Rent) */}
+            {property.status === PropertyStatus.FOR_RENT && (<div className="mb-8 bg-blue-50 rounded-xl p-4">
+                <h3 className="text-lg font-semibold mb-2 text-blue-900">Ready to rent? Book now</h3>
+                <p className="text-blue-700 text-sm mb-3">
+                  Start your rental journey with this property. Monthly rent: {formatPrice(property.price)}
+                </p>
+                <div className="mt-3">
+                  <button onClick={openBookingModal} disabled={!isAuthenticated} className="btn-primary disabled:opacity-50">
+                    {isAuthenticated ? 'Book This Property' : 'Login to Book'}
+                  </button>
+                </div>
+              </div>)}
+
+            {/* Property Details */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 p-4 bg-gray-50 rounded-lg">
+              <div className="text-center">
+                <div className="flex justify-center mb-2">
+                  <Bed className="w-6 h-6 text-primary-600"/>
+                </div>
+                <div className="text-lg font-semibold">{property.bedrooms}</div>
+                <div className="text-sm text-gray-600">Bedrooms</div>
+              </div>
+
+              <div className="text-center">
+                <div className="flex justify-center mb-2">
+                  <Bath className="w-6 h-6 text-primary-600"/>
+                </div>
+                <div className="text-lg font-semibold">{property.bathrooms}</div>
+                <div className="text-sm text-gray-600">Bathrooms</div>
+              </div>
+
+              <div className="text-center">
+                <div className="flex justify-center mb-2">
+                  <Square className="w-6 h-6 text-primary-600"/>
+                </div>
+                <div className="text-lg font-semibold">{property.squareFeet}</div>
+                <div className="text-sm text-gray-600">Sq Ft</div>
+              </div>
+
+              <div className="text-center">
+                <div className="flex justify-center mb-2">
+                  <Calendar className="w-6 h-6 text-primary-600"/>
+                </div>
+                <div className="text-lg font-semibold">{property.propertyType.replace('_', ' ')}</div>
+                <div className="text-sm text-gray-600">Type</div>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Description</h2>
+              <p className="text-gray-700 leading-relaxed whitespace-pre-line">{property.description}</p>
+            </div>
+
+
+
+            {/* Contact Agent */}
+            <div className="border-t border-gray-200 pt-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Contact Agent</h2>
+              <div className="bg-primary-50 rounded-lg p-6">
+                <div className="flex items-center mb-4">
+                  <div className="w-16 h-16 bg-primary-600 rounded-full flex items-center justify-center mr-4">
+                    <span className="text-white text-xl font-bold">SS</span>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900">{(property.owner?.firstName || '') + ' ' + (property.owner?.lastName || '')}</h3>
+                    <p className="text-gray-600">Real Estate Agent</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+                  <a href={(property.owner?.phone || property.owner?.contactNumber) ? `tel:${property.owner?.phone || property.owner?.contactNumber}` : undefined} onClick={(e) => {
+            if (!(property.owner?.phone || property.owner?.contactNumber)) {
+                e.preventDefault();
+                alert('Agent phone not available');
+            }
+        }} className="flex items-center justify-center btn-primary flex-1 text-center">
+                    <Phone className="w-4 h-4 mr-2"/>
+                    Call Agent
+                  </a>
+                  <button onClick={() => setShowMsgModal(true)} className="flex items-center justify-center bg-white border border-primary-600 text-primary-600 font-medium py-2 px-4 rounded-lg hover:bg-primary-50 transition-colors duration-200 flex-1">
+                    <Mail className="w-4 h-4 mr-2"/>
+                    Email Agent
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Message Modal */}
+          {showMsgModal && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+                <div className="text-lg font-semibold mb-4">Email Agent</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <input className="input-field" placeholder="Your Name" value={msgName} onChange={(e) => setMsgName(e.target.value)}/>
+                  <input className="input-field" placeholder="Your Email" value={msgEmail} onChange={(e) => setMsgEmail(e.target.value)} type="email"/>
+                  <input className="input-field md:col-span-2" placeholder="Your Phone (optional)" value={msgPhone} onChange={(e) => setMsgPhone(e.target.value)}/>
+                  <textarea className="input-field md:col-span-2 min-h-[120px]" placeholder="Write your message..." value={msgText} onChange={(e) => setMsgText(e.target.value)}/>
+                </div>
+                <div className="mt-5 flex justify-end gap-3">
+                  <button type="button" className="px-4 py-2 rounded-lg border bg-white hover:bg-gray-50" onClick={() => setShowMsgModal(false)} disabled={msgSending}>
+                    Cancel
+                  </button>
+                  <button type="button" className="btn-primary disabled:opacity-50" onClick={sendMessageToAgent} disabled={msgSending}>
+                    {msgSending ? 'Sending...' : 'Send Message'}
+                  </button>
+                </div>
+              </div>
+            </div>)}
+
+          {/* Booking Modal */}
+          {showBookingModal && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+                <div className="text-lg font-semibold mb-4">Book This Property</div>
+                <div className="mb-4 bg-blue-100 text-blue-900 rounded-lg p-4 text-sm">
+                  <p className="font-semibold">Security deposit policy</p>
+                  <p className="mt-1">
+                    We immediately deduct the security deposit from your wallet to reserve this home. The amount is refundable
+                    if the booking is cancelled by the owner.
+                  </p>
+                  <p className="mt-2">
+                    Wallet balance:{' '}
+                    {walletLoading
+                ? 'Checking...'
+                : walletBalance !== null
+                    ? `₹${walletBalance.toLocaleString()}`
+                    : isAuthenticated
+                        ? 'Unavailable'
+                        : 'Login required'}
+                  </p>
+                  <button type="button" onClick={() => {
+                setShowBookingModal(false);
+                navigate('/wallet');
+            }} className="mt-2 text-primary-700 font-semibold hover:underline">
+                    Manage wallet & add funds
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Start Date *
+                    </label>
+                    <input type="date" className="input-field" value={bookingData.startDate} onChange={(e) => setBookingData(prev => ({ ...prev, startDate: e.target.value }))} min={new Date().toISOString().split('T')[0]}/>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      End Date (optional)
+                    </label>
+                    <input type="date" className="input-field" value={bookingData.endDate} onChange={(e) => setBookingData(prev => ({ ...prev, endDate: e.target.value }))} min={bookingData.startDate || new Date().toISOString().split('T')[0]}/>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Monthly Rent (₹)
+                    </label>
+                    <input type="number" className="input-field" placeholder={`Default: ${formatPrice(property?.price || 0)}`} value={bookingData.monthlyRent} onChange={(e) => setBookingData(prev => ({ ...prev, monthlyRent: e.target.value }))}/>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Security Deposit (₹)
+                    </label>
+                    <input type="number" className="input-field" placeholder={`Default: ${formatPrice(property?.price || 0)}`} value={bookingData.securityDeposit} onChange={(e) => setBookingData(prev => ({ ...prev, securityDeposit: e.target.value }))}/>
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button onClick={() => setShowBookingModal(false)} className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                    Cancel
+                  </button>
+                  <button onClick={handleCreateBooking} disabled={bookingBusy || !bookingData.startDate} className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50">
+                    {bookingBusy ? 'Booking...' : 'Confirm Booking'}
+                  </button>
+                </div>
+              </div>
+            </div>)}
+        </motion.div>
+      </div>
+    </div>);
+};
+export default PropertyDetailPage;
